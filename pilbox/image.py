@@ -26,6 +26,9 @@ import PIL.ImageOps
 
 from pilbox import errors
 
+from pillow_heif import register_heif_opener
+register_heif_opener()
+
 try:
     from io import BytesIO
 except ImportError:
@@ -64,7 +67,10 @@ _formats_to_pil = {
     "jpeg": "JPEG",
     "png": "PNG",
     "webp": "WEBP",
-    "tiff": "TIFF"
+    "tiff": "TIFF",
+    "heic": "HEIC",
+    "heif": "HEIF",
+    "mpo": "MPO"
 }
 
 
