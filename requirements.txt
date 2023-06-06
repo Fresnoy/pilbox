@@ -1,3 +1,6 @@
 tornado==6.3.2
 Pillow==9.5.0
 pillow-heif==0.11.1
+sphinx-me==0.3
+pycurl==7.45.2
+opencv-python==4.7.0.72

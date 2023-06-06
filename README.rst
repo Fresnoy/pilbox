@@ -37,10 +37,10 @@ Dependencies
 ------------
 
 -  `Python >= 2.7 <http://www.python.org/download/>`_
--  `Pillow 5.2.0 <https://pypi.python.org/pypi/Pillow/5.2.0>`_
--  `Tornado 5.1.0 <https://pypi.python.org/pypi/tornado/5.1.0>`_
+-  `Pillow 9.5.0 <https://pypi.python.org/pypi/Pillow/5.2.0>`_
+-  `Tornado 6.3.2 <https://pypi.python.org/pypi/tornado/5.1.0>`_
 -  `OpenCV 2.x <http://opencv.org/>`_ (optional)
--  `PycURL 7.x <http://pycurl.sourceforge.net/>`_ (optional, but
+-  `PycURL 7.45.2 <http://pycurl.sourceforge.net/>`_ (optional, but
    recommended; required for proxy requests and requests over TLS)
 -  Image Libraries: libjpeg-dev, libfreetype6-dev, libwebp-dev,
    zlib1g-dev, liblcms2-dev
@@ -674,3 +674,5 @@ Changelog
 -  1.3.3: Increase Pillow version to 5.2.0 and Tornado version to 5.1.0
 -  1.3.4: Added worker config property to set number of Tornado
    processes
+-  1.3.5: Increase Pillow version to 9.5.0 and Tornado version to 6.3.2
+   add suport HEIC & MPO files
