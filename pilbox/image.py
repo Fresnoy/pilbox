@@ -25,6 +25,7 @@ import PIL.Image
 import PIL.ImageOps
 
 from pilbox import errors
+import numpy
 
 from pillow_heif import register_heif_opener
 register_heif_opener()
@@ -35,9 +36,9 @@ except ImportError:
     from cStringIO import StringIO as BytesIO
 
 try:
-    import cv
+    import cv2
 except ImportError:
-    cv = None
+    cv2 = None
 
 logger = logging.getLogger("tornado.application")
 
@@ -334,7 +335,7 @@ class Image(object):
 
     def _crop(self, size, opts):
         if opts["position"] == "face":
-            if cv is None:
+            if cv2 is None:
                 raise NotImplementedError
             else:
                 pos = self._get_face_position()
@@ -373,23 +374,22 @@ class Image(object):
 
     def _get_face_rectangles(self):
         cvim = self._pil_to_opencv()
-        return cv.HaarDetectObjects(
+        # read the haarcascade to detect the faces in an image
+        face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+        return face_cascade.detectMultiScale(
             cvim,
-            self._get_face_classifier(),
-            cv.CreateMemStorage(0),
             1.3,  # Scale factor
-            4,  # Minimum neighbors
-            0,  # HAAR Flags
-            (20, 20))
+            4)
 
     def _get_face_position(self):
         rects = self._get_face_rectangles()
-        if not rects:
+        if not rects.any():
             return (0.5, 0.5)
         xt, yt = (0.0, 0.0)
         for rect in rects:
-            xt += rect[0][0] + (rect[0][2] / 2.0)
-            yt += rect[0][1] + (rect[0][3] / 2.0)
+            print(rect)
+            xt += rect[0] + (rect[2] / 2.0)
+            yt += rect[1] + (rect[3] / 2.0)
 
         return (xt / (len(rects) * self.img.size[0]),
                 yt / (len(rects) * self.img.size[1]))
@@ -397,14 +397,12 @@ class Image(object):
     def _get_face_classifier(self):
         if not hasattr(Image, "_classifier"):
             classifier_path = os.path.abspath(Image._CLASSIFIER_PATH)
-            Image._classifier = cv.Load(classifier_path)
+            Image._classifier = cv2.Load(classifier_path)
         return Image._classifier
 
     def _pil_to_opencv(self):
         mono = self.img.convert("L")
-        cvim = cv.CreateImageHeader(mono.size, cv.IPL_DEPTH_8U, 1)
-        cv.SetData(cvim, mono.tobytes(), mono.size[0])
-        cv.EqualizeHist(cvim, cvim)
+        cvim = cv2.cvtColor(numpy.array(mono), cv2.COLOR_RGB2BGR)
         return cvim
 
     @staticmethod
