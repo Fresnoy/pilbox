@@ -39,7 +39,7 @@ Dependencies
 -  `Python >= 2.7 <http://www.python.org/download/>`_
 -  `Pillow 9.5.0 <https://pypi.python.org/pypi/Pillow/5.2.0>`_
 -  `Tornado 6.3.2 <https://pypi.python.org/pypi/tornado/5.1.0>`_
--  `OpenCV 2.x <http://opencv.org/>`_ (optional)
+-  `OpenCV 4.x <http://opencv.org/>`_ (optional)
 -  `PycURL 7.45.2 <http://pycurl.sourceforge.net/>`_ (optional, but
    recommended; required for proxy requests and requests over TLS)
 -  Image Libraries: libjpeg-dev, libfreetype6-dev, libwebp-dev,
@@ -675,4 +675,6 @@ Changelog
 -  1.3.4: Added worker config property to set number of Tornado
    processes
 -  1.3.5: Increase Pillow version to 9.5.0 and Tornado version to 6.3.2
-   add suport HEIC & MPO files
+   to suport HEIC & MPO files
+   MAJ code to support OpenCV v4 (face recogition) don't forget to install libgl1 or ffmpeg libsm6 libxext6
+   
