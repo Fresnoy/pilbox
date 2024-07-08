@@ -71,7 +71,8 @@ _formats_to_pil = {
     "tiff": "TIFF",
     "heic": "HEIC",
     "heif": "HEIF",
-    "mpo": "MPO"
+    "mpo": "MPO",
+    "psd": "PSD",
 }
 
 
