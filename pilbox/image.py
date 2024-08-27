@@ -127,7 +127,7 @@ class Image(object):
 
     @staticmethod
     def validate_rectangle(rect):
-        if not rect:
+        if not rect or not rect.any():
             raise errors.RectangleError("Missing rectangle")
         rect = rect.split(",")
         if len(rect) != 4:
