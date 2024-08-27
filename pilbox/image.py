@@ -56,7 +56,7 @@ _orientation_to_rotation = {
 }
 
 _filters_to_pil = {
-    "antialias": PIL.Image.ANTIALIAS,
+    "antialias": PIL.Image.LANCZOS,
     "bicubic": PIL.Image.BICUBIC,
     "bilinear": PIL.Image.BILINEAR,
     "nearest": PIL.Image.NEAREST
@@ -384,7 +384,7 @@ class Image(object):
 
     def _get_face_position(self):
         rects = self._get_face_rectangles()
-        if not rects.any():
+        if not rects:
             return (0.5, 0.5)
         xt, yt = (0.0, 0.0)
         for rect in rects:
