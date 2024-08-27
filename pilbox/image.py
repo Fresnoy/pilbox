@@ -127,7 +127,7 @@ class Image(object):
 
     @staticmethod
     def validate_rectangle(rect):
-        if not rect or not rect.any():
+        if not rect.any():
             raise errors.RectangleError("Missing rectangle")
         rect = rect.split(",")
         if len(rect) != 4:
@@ -227,7 +227,7 @@ class Image(object):
                     exif = self.img._getexif() or dict()
                     deg = _orientation_to_rotation.get(exif.get(274, 0), 0)
                 except Exception:
-                    logger.warn('unable to parse exif')
+                    logger.warning('unable to parse exif')
                     deg = 0
             else:
                 deg = 0
@@ -377,10 +377,11 @@ class Image(object):
         cvim = self._pil_to_opencv()
         # read the haarcascade to detect the faces in an image
         face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-        return face_cascade.detectMultiScale(
+        detect = face_cascade.detectMultiScale(
             cvim,
             1.3,  # Scale factor
             4)
+        return detect or numpy.array([])
 
     def _get_face_position(self):
         rects = self._get_face_rectangles()

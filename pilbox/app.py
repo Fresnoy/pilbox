@@ -210,7 +210,7 @@ class ImageHandler(tornado.web.RequestHandler):
                 proxy_port=self.settings.get("proxy_port"))
             raise tornado.gen.Return(resp)
         except (socket.gaierror, tornado.httpclient.HTTPError) as e:
-            logger.warn("Fetch error for %s: %s",
+            logger.warning("Fetch error for %s: %s",
                         self.get_argument("url"),
                         str(e))
             raise errors.FetchError()
