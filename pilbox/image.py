@@ -384,7 +384,7 @@ class Image(object):
 
     def _get_face_position(self):
         rects = self._get_face_rectangles()
-        if not rects:
+        if not rects or not rects.any():
             return (0.5, 0.5)
         xt, yt = (0.0, 0.0)
         for rect in rects:
