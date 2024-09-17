@@ -381,7 +381,7 @@ class Image(object):
             cvim,
             1.3,  # Scale factor
             4)
-        return detect or numpy.array([])
+        return detect if len(detect) else numpy.array([])
 
     def _get_face_position(self):
         rects = self._get_face_rectangles()
