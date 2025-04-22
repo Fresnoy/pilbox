@@ -66,6 +66,7 @@ _formats_to_pil = {
     "gif": "GIF",
     "jpg": "JPEG",
     "jpeg": "JPEG",
+    "jpeg2000": "JPEG",
     "png": "PNG",
     "webp": "WEBP",
     "tiff": "TIFF",
