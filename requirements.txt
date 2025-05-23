@@ -1,4 +1,4 @@
-tornado==6.4.1
+tornado==6.5.1
 pillow==10.4.0
 pillow-heif==0.18.0
 sphinx-me==0.3
