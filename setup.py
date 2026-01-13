@@ -25,7 +25,7 @@ setup(name='pilbox',
       description='Pilbox is an image processing application server built on the Tornado web framework using the Pillow Imaging Library',
       long_description=readme,
       classifiers=[
-        'License :: OSI Approved :: Apache Software License',
+        'MIT AND (Apache-2.0 OR BSD-2-Clause)',
         'Programming Language :: Python :: 2',
         'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
