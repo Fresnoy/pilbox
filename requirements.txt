@@ -2,5 +2,5 @@ opencv-python==4.12.0.88
 pillow==12.1.0
 pillow_heif==1.1.1
 pycurl==7.45.7
-tornado==6.5.4
+tornado==6.5.5
 sphinx-me==0.3
