@@ -14,8 +14,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-from __future__ import absolute_import, division, print_function, \
-    with_statement
+from __future__ import absolute_import, division, print_function, with_statement
 
 import logging
 import re
@@ -28,6 +27,7 @@ from pilbox import errors
 import numpy
 
 from pillow_heif import register_heif_opener
+
 register_heif_opener()
 
 try:
@@ -43,23 +43,25 @@ except ImportError:
 logger = logging.getLogger("tornado.application")
 
 _positions_to_ratios = {
-    "top-left": (0.0, 0.0), "top": (0.5, 0.0), "top-right": (1.0, 0.0),
-    "left": (0.0, 0.5), "center": (0.5, 0.5), "right": (1.0, 0.5),
-    "bottom-left": (0.0, 1.0), "bottom": (0.5, 1.0),
-    "bottom-right": (1.0, 1.0), "face": None
+    "top-left": (0.0, 0.0),
+    "top": (0.5, 0.0),
+    "top-right": (1.0, 0.0),
+    "left": (0.0, 0.5),
+    "center": (0.5, 0.5),
+    "right": (1.0, 0.5),
+    "bottom-left": (0.0, 1.0),
+    "bottom": (0.5, 1.0),
+    "bottom-right": (1.0, 1.0),
+    "face": None,
 }
 
-_orientation_to_rotation = {
-    3: 180,
-    6: 90,
-    8: 270
-}
+_orientation_to_rotation = {3: 180, 6: 90, 8: 270}
 
 _filters_to_pil = {
     "antialias": PIL.Image.LANCZOS,
     "bicubic": PIL.Image.BICUBIC,
     "bilinear": PIL.Image.BILINEAR,
-    "nearest": PIL.Image.NEAREST
+    "nearest": PIL.Image.NEAREST,
 }
 
 _formats_to_pil = {
@@ -70,6 +72,7 @@ _formats_to_pil = {
     "png": "PNG",
     "webp": "WEBP",
     "tiff": "TIFF",
+    "tif": "TIFF",
     "heic": "HEIC",
     "heif": "HEIF",
     "mpo": "MPO",
@@ -83,27 +86,72 @@ class Image(object):
     MODES = ["adapt", "clip", "crop", "fill", "scale"]
     POSITIONS = _positions_to_ratios.keys()
 
-    _DEFAULTS = dict(background="0fff", expand=False, filter="antialias",
-                     format=None, mode="crop", optimize=False,
-                     position="center", quality=90, progressive=False,
-                     retain=75, preserve_exif=False)
-    _CLASSIFIER_PATH = os.path.join(
-        os.path.dirname(__file__), "frontalface.xml")
+    _DEFAULTS = dict(
+        background="0fff",
+        expand=False,
+        filter="antialias",
+        format=None,
+        mode="crop",
+        optimize=False,
+        position="center",
+        quality=90,
+        progressive=False,
+        retain=75,
+        preserve_exif=False,
+    )
+    _CLASSIFIER_PATH = os.path.join(os.path.dirname(__file__), "frontalface.xml")
 
     def __init__(self, stream):
         self.stream = stream
         self._skip_background = False
         try:
             self.img = PIL.Image.open(self.stream)
-        except IOError:
-            raise errors.ImageFormatError("File is not an image")
+        except (IOError, SyntaxError):
+            # Pillow lève parfois un SyntaxError sur les TIFF mal supportés
+            try:
+                import tifffile
+                import numpy
+
+                if hasattr(self.stream, "seek"):
+                    self.stream.seek(0)
+                # read with tifffile
+                img_array = tifffile.imread(self.stream)
+
+                # if HDR 32 bits, convert to 8 bits
+                if img_array.dtype == numpy.float32:
+                    img_array = numpy.clip(img_array, 0.0, 1.0)
+                    # gama correction
+                    if img_array.shape[-1] == 4:
+                        rgb = img_array[..., :3]
+                        alpha = img_array[..., 3:]
+                        # color correction
+                        rgb_corrected = numpy.power(rgb, 1.0 / 2.2)
+                        img_array = numpy.concatenate([rgb_corrected, alpha], axis=-1)
+                    else:
+                        img_array = numpy.power(img_array, 1.0 / 2.2)
+
+                    # convert to 8 bits (0-255)
+                    img_8bit = (img_array * 255).astype(numpy.uint8)
+                else:
+                    img_8bit = img_array.astype(numpy.uint8)
+
+                # mode change (RGBA si 4 canaux, sinon RGB)
+                mode = "RGBA" if img_8bit.shape[-1] == 4 else "RGB"
+
+                # reconvert
+                self.img = PIL.Image.fromarray(img_8bit, mode)
+
+                self.img.format = "TIFF"
+
+            except Exception:
+                # Si même tifffile échoue, alors ce n'est vraiment pas une image valide
+                raise errors.ImageFormatError("File is not an image")
 
         # Cache original Exif data, since it can be erased by some operations
-        self._exif = self.img.info.get('exif', b'')
+        self._exif = self.img.info.get("exif", b"")
 
         if self.img.format.lower() not in self.FORMATS:
-            raise errors.ImageFormatError(
-                "Unknown format: %s" % self.img.format)
+            raise errors.ImageFormatError("Unknown format: %s" % self.img.format)
         self._orig_format = self.img.format
 
     @staticmethod
@@ -148,41 +196,45 @@ class Image(object):
             raise errors.FilterError("Invalid filter: %s" % opts["filter"])
         elif opts["format"] and opts["format"] not in Image.FORMATS:
             raise errors.FormatError("Invalid format: %s" % opts["format"])
-        elif opts["position"] not in Image.POSITIONS \
-                and not opts["pil"]["position"]:
-            raise errors.PositionError(
-                "Invalid position: %s" % opts["position"])
-        elif not Image._isint(opts["background"], 16) \
-                or len(opts["background"]) not in [3, 4, 6, 8]:
-            raise errors.BackgroundError(
-                "Invalid background: %s" % opts["background"])
+        elif opts["position"] not in Image.POSITIONS and not opts["pil"]["position"]:
+            raise errors.PositionError("Invalid position: %s" % opts["position"])
+        elif not Image._isint(opts["background"], 16) or len(
+            opts["background"]
+        ) not in [3, 4, 6, 8]:
+            raise errors.BackgroundError("Invalid background: %s" % opts["background"])
         elif opts["optimize"] and not Image._isint(opts["optimize"]):
-            raise errors.OptimizeError(
-                "Invalid optimize: %s", str(opts["optimize"]))
-        elif opts["quality"] != "keep" and \
-            (not Image._isint(opts["quality"]) or
-             int(opts["quality"]) > 100 or
-             int(opts["quality"]) < 0):
-            raise errors.QualityError(
-                "Invalid quality: %s", str(opts["quality"]))
+            raise errors.OptimizeError("Invalid optimize: %s", str(opts["optimize"]))
+        elif opts["quality"] != "keep" and (
+            not Image._isint(opts["quality"])
+            or int(opts["quality"]) > 100
+            or int(opts["quality"]) < 0
+        ):
+            raise errors.QualityError("Invalid quality: %s", str(opts["quality"]))
         elif opts["preserve_exif"] and not Image._isint(opts["preserve_exif"]):
             raise errors.PreserveExifError(
-                "Invalid preserve_exif: %s" % str(opts["preserve_exif"]))
+                "Invalid preserve_exif: %s" % str(opts["preserve_exif"])
+            )
         elif opts["progressive"] and not Image._isint(opts["progressive"]):
             raise errors.ProgressiveError(
-                "Invalid progressive: %s", str(opts["progressive"]))
-        elif (not Image._isint(opts["retain"]) or
-              int(opts["retain"]) > 100 or
-              int(opts["retain"]) < 0):
-            raise errors.RetainError(
-                "Invalid retain: %s" % str(opts["retain"]))
+                "Invalid progressive: %s", str(opts["progressive"])
+            )
+        elif (
+            not Image._isint(opts["retain"])
+            or int(opts["retain"]) > 100
+            or int(opts["retain"]) < 0
+        ):
+            raise errors.RetainError("Invalid retain: %s" % str(opts["retain"]))
 
     def region(self, rect):
-        """ Selects a sub-region of the image using the supplied rectangle,
-            x, y, width, height.
+        """Selects a sub-region of the image using the supplied rectangle,
+        x, y, width, height.
         """
-        box = (int(rect[0]), int(rect[1]), int(rect[0]) + int(rect[2]),
-               int(rect[1]) + int(rect[3]))
+        box = (
+            int(rect[0]),
+            int(rect[1]),
+            int(rect[0]) + int(rect[2]),
+            int(rect[1]) + int(rect[3]),
+        )
         if box[2] > self.img.size[0] or box[3] > self.img.size[1]:
             raise errors.RectangleError("Region out-of-bounds")
         self.img = self.img.crop(box)
@@ -215,7 +267,7 @@ class Image(object):
         return self
 
     def rotate(self, deg, **kwargs):
-        """ Rotates the image clockwise around its center.  Returns the
+        """Rotates the image clockwise around its center.  Returns the
         instance. Supports the following optional keyword arguments:
 
         expand - Expand the output image to fit rotation
@@ -228,7 +280,7 @@ class Image(object):
                     exif = self.img._getexif() or dict()
                     deg = _orientation_to_rotation.get(exif.get(274, 0), 0)
                 except Exception:
-                    logger.warning('unable to parse exif')
+                    logger.warning("unable to parse exif")
                     deg = 0
             else:
                 deg = 0
@@ -343,8 +395,7 @@ class Image(object):
                 pos = self._get_face_position()
         else:
             pos = opts["pil"]["position"]
-        self.img = PIL.ImageOps.fit(
-            self.img, size, opts["pil"]["filter"], 0, pos)
+        self.img = PIL.ImageOps.fit(self.img, size, opts["pil"]["filter"], 0, pos)
 
     def _fill(self, size, opts):
         self._clip(size, opts)
@@ -377,11 +428,14 @@ class Image(object):
     def _get_face_rectangles(self):
         cvim = self._pil_to_opencv()
         # read the haarcascade to detect the faces in an image
-        face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+        face_cascade = cv2.CascadeClassifier(
+            cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+        )
         detect = face_cascade.detectMultiScale(
             cvim,
             1.3,  # Scale factor
-            4)
+            4,
+        )
         return detect if len(detect) else numpy.array([])
 
     def _get_face_position(self):
@@ -394,8 +448,10 @@ class Image(object):
             xt += rect[0] + (rect[2] / 2.0)
             yt += rect[1] + (rect[3] / 2.0)
 
-        return (xt / (len(rects) * self.img.size[0]),
-                yt / (len(rects) * self.img.size[1]))
+        return (
+            xt / (len(rects) * self.img.size[0]),
+            yt / (len(rects) * self.img.size[1]),
+        )
 
     def _get_face_classifier(self):
         if not hasattr(Image, "_classifier"):
@@ -417,17 +473,17 @@ class Image(object):
         opts["pil"] = dict(
             filter=_filters_to_pil.get(opts["filter"]),
             format=_formats_to_pil.get(opts["format"]),
-            position=Image._get_custom_position(opts["position"]))
+            position=Image._get_custom_position(opts["position"]),
+        )
 
         if not opts["pil"]["position"]:
-            opts["pil"]["position"] = _positions_to_ratios.get(
-                opts["position"], None)
+            opts["pil"]["position"] = _positions_to_ratios.get(opts["position"], None)
 
         return opts
 
     @staticmethod
     def _get_custom_position(pos):
-        m = re.match(r'^(\d+(\.\d+)?),(\d+(\.\d+)?)$', pos)
+        m = re.match(r"^(\d+(\.\d+)?),(\d+(\.\d+)?)$", pos)
         if not m:
             return None
         pos = (float(m.group(1)), float(m.group(3)))
@@ -458,7 +514,7 @@ def color_hex_to_dec_tuple(color):
     """
     assert len(color) in [3, 4, 6, 8]
     if len(color) in [3, 4]:
-        color = "".join([c*2 for c in color])
+        color = "".join([c * 2 for c in color])
     n = int(color, 16)
     t = ((n >> 16) & 255, (n >> 8) & 255, n & 255)
     if len(color) == 8:
@@ -472,23 +528,38 @@ def main():
     import tornado.options
     from tornado.options import define, options, parse_command_line
 
-    define("operation", help="the operation to be performed", type=str,
-           default="resize", metavar="|".join(["resize", "rotate", "none"]))
+    define(
+        "operation",
+        help="the operation to be performed",
+        type=str,
+        default="resize",
+        metavar="|".join(["resize", "rotate", "none"]),
+    )
     define("width", help="the desired image width", type=int)
     define("height", help="the desired image height", type=int)
-    define("mode", help="the resizing mode",
-           metavar="|".join(Image.MODES), type=str)
-    define("background", help="the hexadecimal fill background color",
-           type=str)
-    define("position", help="the crop position",
-           metavar="|".join(Image.POSITIONS), type=str)
-    define("filter", help="default filter to use when resizing",
-           metavar="|".join(Image.FILTERS), type=str)
+    define("mode", help="the resizing mode", metavar="|".join(Image.MODES), type=str)
+    define("background", help="the hexadecimal fill background color", type=str)
+    define(
+        "position",
+        help="the crop position",
+        metavar="|".join(Image.POSITIONS),
+        type=str,
+    )
+    define(
+        "filter",
+        help="default filter to use when resizing",
+        metavar="|".join(Image.FILTERS),
+        type=str,
+    )
     define("degree", help="the desired rotation degree", type=str)
     define("expand", help="expand image size to accomodate rotation", type=int)
     define("rect", help="rectangle: x,y,w,h", type=str)
-    define("format", help="default format to use when saving",
-           metavar="|".join(Image.FORMATS), type=str)
+    define(
+        "format",
+        help="default format to use when saving",
+        metavar="|".join(Image.FORMATS),
+        type=str,
+    )
     define("optimize", help="default to optimize when saving", type=int)
     define("progressive", help="default to progressive when saving", type=int)
     define("quality", help="default jpeg quality, 1-99 or keep")
@@ -523,20 +594,28 @@ def main():
         image = Image(open(args[0], "r"))
 
     if options.operation == "resize":
-        image.resize(options.width, options.height, mode=options.mode,
-                     filter=options.filter, background=options.background,
-                     position=options.position, retain=options.retain)
+        image.resize(
+            options.width,
+            options.height,
+            mode=options.mode,
+            filter=options.filter,
+            background=options.background,
+            position=options.position,
+            retain=options.retain,
+        )
     elif options.operation == "rotate":
         image.rotate(options.degree, expand=options.expand)
     elif options.operation == "region":
         image.region(options.rect.split(","))
 
-    stream = image.save(format=options.format,
-                        optimize=options.optimize,
-                        background=options.background,
-                        quality=options.quality,
-                        progressive=options.progressive,
-                        preserve_exif=options.preserve_exif)
+    stream = image.save(
+        format=options.format,
+        optimize=options.optimize,
+        background=options.background,
+        quality=options.quality,
+        progressive=options.progressive,
+        preserve_exif=options.preserve_exif,
+    )
     try:
         sys.stdout.buffer.write(stream.read())
     except AttributeError:
